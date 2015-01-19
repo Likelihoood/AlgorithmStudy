@@ -28,18 +28,23 @@ def splitDataSet(dataSet, axis, value):
             newFea.extend(data[axis+1:])
             newSet.append(newFea)
     return newSet
+
 '''
     choose the best feature to split the data set
-    find the highest information gain
-    Iterative Dichotomiser 3 (ID3)
+    1. calculate all gaininfo for all feature
+    2. if gaininfo is bigger than the average gaininfo, calc the gainRatio
+    3. choose the highest gainRatio feature to split
 '''
-def chooseBestFeatureToSplitByID3(dataSet):
+def chooseBestFeatureToSplit(dataSet):
     numFeatures = len(dataSet[0]) - 1
     baseEnt = calcShannonEnt(dataSet)
     bestInfoGain = 0.0
     bestFeatureIndex = -1 
+    infoGainDic = {}
+    totalGain = 0
     for i in range(0,numFeatures):
         valueList = [featureVec[i] for featureVec in dataSet]
+        splitInfo = calcSplitInfo(valueList,0)
         valueSet = set(valueList)
         ent = 0.0
         for value in valueSet:
@@ -48,11 +53,38 @@ def chooseBestFeatureToSplitByID3(dataSet):
             newEnt = float(len(subSet)) / len(dataSet) * newEnt
             ent += newEnt
         infoGain = baseEnt - ent
+        totalGain += infoGain
+        infoGainDic.setdefault(i,[splitInfo,infoGain])
         if infoGain > bestInfoGain:
             bestInfoGain = infoGain
             bestFeatureIndex = i
     return bestFeatureIndex
+    meanGain = totalGain / numFeatures
+    gainRatioDic = {}
+    for index in infoGainDic:
+        splitInfo,infoGain = infoGainDic[index]
+        if infoGain > meanGain:
+            gainRatio = infoGain / splitInfo
+            gainRatioDic.setdefault(index, gainRatio)
+    if gainRatioDic.keys():
+        itemList = sorted(gainRatioDic.items(),key=lambda item:item[1],reverse = 1)
+        return itemList[0][0]
+    else:
+        return bestFeatureIndex
+    
 
+def calcSplitInfo(dataSet,featIndex):
+    valueList = [featureVec[featIndex] for featureVec in dataSet]
+    totalNum = len(valueList)
+    valueDic = {}
+    for value in valueList:
+        valueDic.setdefault(value,0)
+        valueDic[value] += 1
+    ent = 0.0
+    for value in valueDic:
+        pro = valueDic[value] / float(totalNum)
+        ent -= pro * log(pro,2)
+    return ent
 
 def genDataSet():
     dataSet = [
@@ -89,8 +121,8 @@ def majorityCnt(classList):
         classCount.setdefault(vote,0)
         classCount[vot] += 1
     soretedClassCount = sorted(classCount.items(),key=lambda item:item[1],reverse=True)
-
     return sortedClassCount[0][0]
+
 '''
     create the tree recuried
 '''
@@ -101,7 +133,7 @@ def createTree(dataSet, labels):
     if len(dataSet[0]) == 1:
         return majorityCnt(classList)
     #split the dataset
-    bestFeat = chooseBestFeatureToSplitByID3(dataSet)
+    bestFeat = chooseBestFeatureToSplit(dataSet)
     bestFeatLabel = labels[bestFeat]
     myTree = {bestFeatLabel:{}}
     del(labels[bestFeat])
@@ -154,8 +186,7 @@ if __name__ == '__main__':
     storeTree(myTree,'testFile.tree')
     dTree = loadTree('testFile.tree')
     print classify(dTree,labels,['Rain','Cool','Normal','Weak'])
-    #createPlot(myTree)
-
+    createPlot(myTree)
 
 
 
